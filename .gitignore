@@ -1,0 +1,8 @@
+## Ignore Build and Release Outputs
+nupkgs/
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+test-results/

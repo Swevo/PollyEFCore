@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <PackageId>PollyEFCore</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Justin Bannister</Authors>
+    <Description>Polly v8 resilience pipelines for Entity Framework Core — automatically wrap every EF Core command (queries, SaveChanges) with retry, timeout, circuit-breaker and more. Handles transient database errors, connection blips, and SQL timeouts without changing a single line of handler or repository code.</Description>
+    <PackageTags>polly;entityframework;efcore;entity-framework-core;resilience;retry;timeout;circuit-breaker;sql;database;dotnet;aspnetcore;polly-v8;Fault;Exception;Handling;Transient;DbContext;interceptor</PackageTags>
+    <PackageReleaseNotes>1.0.0: Initial release. ResilienceDbCommandInterceptor wraps EF Core queries and SaveChanges with a Polly v8 ResiliencePipeline. AddPollyResilience() DI extension for DbContextOptionsBuilder. DatabaseFacade.ExecuteWithResilienceAsync() for explicit operation wrapping. Targets net8.0 and net9.0.</PackageReleaseNotes>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Swevo/PollyEFCore</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Swevo/PollyEFCore</PackageProjectUrl>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright (c) 2025 Justin Bannister</Copyright>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.*" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.*">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Polly.Core" Version="8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
