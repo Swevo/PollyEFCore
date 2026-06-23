@@ -4,7 +4,7 @@
 [![NuGet Downloads](https://img.shields.io/nuget/dt/PollyEFCore.svg)](https://www.nuget.org/packages/PollyEFCore)
 [![CI](https://github.com/Swevo/PollyEFCore/actions/workflows/build.yml/badge.svg)](https://github.com/Swevo/PollyEFCore/actions)
 
-**Polly v8 resilience pipelines for Entity Framework Core** — automatically wrap every EF Core command (queries, `SaveChanges`, scalar operations) with retry, timeout, circuit-breaker and more. Handles transient database errors, connection blips and SQL timeouts without changing a single line of handler or repository code.
+**Polly v8 resilience pipelines for Entity Framework Core** — retry, timeout and circuit-breaker for every EF Core query and `SaveChanges`, for any database provider, with a single line of registration.
 
 ```csharp
 services.AddDbContext<AppDbContext>(options =>
@@ -20,7 +20,7 @@ services.AddDbContext<AppDbContext>(options =>
             })));
 ```
 
-Every query and `SaveChangesAsync()` call is now automatically retried on transient failure — no changes to your DbContext, repositories, or handlers.
+Every query and `SaveChangesAsync()` is now automatically retried on transient failure — **no changes to your DbContext, repositories, or handlers**.
 
 ---
 
@@ -30,13 +30,13 @@ EF Core's built-in `EnableRetryOnFailure()` only handles SQL Azure connection fa
 
 | Feature | `EnableRetryOnFailure()` | **PollyEFCore** |
 |---|---|---|
-| Provider | SQL Server / Azure SQL only | **Any provider** (Postgres, MySQL, SQLite…) |
-| Retry strategy | Fixed with jitter | Any Polly strategy (exponential, linear, custom) |
-| Timeout | ❌ | ✅ per-command timeout |
+| Provider support | SQL Server / Azure SQL only | **Any** (Postgres, MySQL, SQLite, CosmosDB…) |
+| Retry strategy | Fixed with jitter, hardcoded delays | Exponential, linear, constant, custom |
+| Timeout per command | ❌ | ✅ |
 | Circuit breaker | ❌ | ✅ stop hammering a broken DB |
-| Hedging | ❌ | ✅ parallel speculative queries |
-| Observability | ❌ | ✅ via `PollyOpenTelemetry` |
-| Exception filter | Hardcoded SQL error codes | **Any predicate** |
+| Hedging (speculative queries) | ❌ | ✅ |
+| Exception filter | Hardcoded SQL error codes | **Any predicate — your codes, your rules** |
+| Observability | ❌ | ✅ via [PollyOpenTelemetry](https://www.nuget.org/packages/PollyOpenTelemetry) |
 
 ---
 
@@ -56,13 +56,12 @@ Dependencies: `Polly.Core 8.*`, `Microsoft.EntityFrameworkCore.Relational 8.*`
 
 ### Automatic interception (recommended)
 
-Register once on `DbContextOptionsBuilder` — all commands are wrapped automatically:
+One call on `DbContextOptionsBuilder` — **all commands wrapped automatically**, no handler changes needed:
 
 ```csharp
-// Program.cs / Startup.cs
 services.AddDbContext<AppDbContext>(options =>
     options
-        .UseNpgsql(connectionString)           // works with any provider
+        .UseNpgsql(connectionString)           // any provider
         .AddPollyResilience(pipeline =>
             pipeline
                 .AddRetry(new RetryStrategyOptions
@@ -75,10 +74,10 @@ services.AddDbContext<AppDbContext>(options =>
                 .AddTimeout(TimeSpan.FromSeconds(30))));
 ```
 
-Use your DbContext exactly as before — no code changes required:
+Use your DbContext exactly as normal — zero code changes required:
 
 ```csharp
-// Repository — unchanged
+// Repository — completely unchanged
 public async Task<List<Product>> GetProductsAsync(CancellationToken ct)
     => await _context.Products.Where(p => p.Active).ToListAsync(ct); // retried automatically
 
@@ -89,19 +88,17 @@ public async Task SaveAsync(Product product, CancellationToken ct)
 }
 ```
 
-### Explicit wrapping (for fine-grained control)
+### Explicit wrapping (per-operation control)
 
-Use `ExecuteWithResilienceAsync` when you need different pipelines per operation, or when working inside an explicit transaction:
+Use `ExecuteWithResilienceAsync` when you need a different pipeline per operation, or when working inside an explicit transaction:
 
 ```csharp
 var products = await _context.Database.ExecuteWithResilienceAsync(
     _pipeline,
     ct => _context.Products.Where(p => p.Active).ToListAsync(ct),
     cancellationToken);
-```
 
-```csharp
-// Void overload for fire-and-forget style operations
+// Void overload
 await _context.Database.ExecuteWithResilienceAsync(
     _pipeline,
     async ct =>
@@ -114,12 +111,86 @@ await _context.Database.ExecuteWithResilienceAsync(
 
 ---
 
-## ASP.NET Core example
+## Provider examples
+
+### SQL Server — transient error filtering
+
+Filter to known SQL Server transient error codes instead of catching all exceptions:
+
+```csharp
+// Known SQL Server transient error numbers
+private static readonly HashSet<int> SqlTransientErrors = new()
+{
+    -2,    // Timeout
+    20,    // General network error
+    64,    // Connection to SQL lost
+    233,   // No process at the other end of the pipe
+    10053, // Transport-level error
+    10054, // Remote host forcibly closed
+    10060, // Connection attempt failed
+    40197, // Service encountered an error processing your request
+    40501, // Service is currently busy
+    40613, // Database is not currently available (Azure SQL)
+    49918, // Cannot process request — not enough resources
+};
+
+services.AddDbContext<AppDbContext>(options =>
+    options
+        .UseSqlServer(connectionString)
+        .AddPollyResilience(pipeline =>
+            pipeline.AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(200),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = new PredicateBuilder()
+                    .Handle<SqlException>(ex => SqlTransientErrors.Contains(ex.Number))
+                    .Handle<TimeoutException>(),
+            })));
+```
+
+### PostgreSQL (Npgsql)
+
+```csharp
+services.AddDbContext<AppDbContext>(options =>
+    options
+        .UseNpgsql(connectionString)
+        .AddPollyResilience(pipeline =>
+            pipeline.AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(100),
+                BackoffType = DelayBackoffType.Exponential,
+                ShouldHandle = new PredicateBuilder()
+                    .Handle<NpgsqlException>(ex => ex.IsTransient)
+                    .Handle<TimeoutException>(),
+            })));
+```
+
+### MySQL (Pomelo)
+
+```csharp
+services.AddDbContext<AppDbContext>(options =>
+    options
+        .UseMySql(connectionString, ServerVersion.AutoDetect(connectionString))
+        .AddPollyResilience(pipeline =>
+            pipeline.AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromMilliseconds(200),
+                ShouldHandle = new PredicateBuilder()
+                    .Handle<MySqlException>(ex => ex.IsTransient)
+                    .Handle<TimeoutException>(),
+            })));
+```
+
+---
+
+## ASP.NET Core example with circuit-breaker
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure EF Core with Polly resilience
 builder.Services.AddDbContext<ShopDbContext>(options =>
     options
         .UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
@@ -144,24 +215,34 @@ builder.Services.AddDbContext<ShopDbContext>(options =>
 
 ---
 
-## Combining with PollyMediatR
+## Full-stack CQRS: PollyMediatR + PollyEFCore
 
-Use with [PollyMediatR](https://www.nuget.org/packages/PollyMediatR) for full stack resilience in CQRS apps:
+Combine with [PollyMediatR](https://www.nuget.org/packages/PollyMediatR) for end-to-end resilience in CQRS/MediatR apps — the MediatR layer retries the whole handler, and the EF Core layer retries individual commands:
 
 ```csharp
-// MediatR handler resilience (outer layer)
-services.AddPollyMediatR(pipeline => pipeline.AddRetry(...));
+// MediatR handler layer (outer) — retries the whole handler on failure
+services.AddPollyMediatR(pipeline =>
+    pipeline.AddRetry(new RetryStrategyOptions
+    {
+        MaxRetryAttempts = 2,
+        ShouldHandle = new PredicateBuilder().Handle<TransientException>(),
+    }));
 
-// EF Core command resilience (inner layer)
+// EF Core layer (inner) — retries individual SQL commands on transient DB errors
 services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(cs).AddPollyResilience(pipeline => pipeline.AddRetry(...)));
+    options.UseSqlServer(cs).AddPollyResilience(pipeline =>
+        pipeline.AddRetry(new RetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            ShouldHandle = new PredicateBuilder().Handle<SqlException>(IsSqlTransient),
+        })));
 ```
 
 ---
 
 ## ⚠️ Transaction note
 
-The automatic interceptor wraps individual ADO.NET commands. When using **explicit `DbTransaction`** objects, configure your pipeline to only handle connection-level failures (before command execution), or use `ExecuteWithResilienceAsync` for full unit-of-work retry control.
+The automatic interceptor wraps individual ADO.NET commands. When using **explicit `DbTransaction`** objects, configure your pipeline to handle only connection-level failures, or use `ExecuteWithResilienceAsync` for full unit-of-work retry control.
 
 ---
 
