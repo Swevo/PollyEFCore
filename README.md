@@ -266,6 +266,8 @@ The automatic interceptor wraps individual ADO.NET commands. When using **explic
 
 ---
 
+| [PollyRabbitMQ](https://www.nuget.org/packages/PollyRabbitMQ) | Polly v8 resilience for RabbitMQ.Client channels |
+
 ## License
 
 MIT
