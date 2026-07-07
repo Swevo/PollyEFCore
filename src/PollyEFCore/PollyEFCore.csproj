@@ -8,11 +8,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PackageId>PollyEFCore</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>Justin Bannister</Authors>
     <Description>Polly v8 resilience pipelines for Entity Framework Core — wrap every EF Core query and SaveChanges with retry, timeout and circuit-breaker via a single AddPollyResilience() call. Works with SQL Server, PostgreSQL (Npgsql), MySQL and any EF Core provider. Replaces EnableRetryOnFailure() with the full power of Polly v8 — custom exception filters, exponential backoff, hedging and chaos engineering.</Description>
     <PackageTags>polly;entityframework;efcore;entity-framework-core;resilience;retry;timeout;circuit-breaker;sql;database;dotnet;aspnetcore;polly-v8;Fault;Exception;Handling;Transient;DbContext;interceptor;SqlServer;PostgreSQL;Npgsql;MySQL;EF8;EFCore8;EFCore9;repository-pattern;CQRS;unit-of-work;transient-fault</PackageTags>
-    <PackageReleaseNotes>1.0.1: Improved NuGet metadata and README with SQL Server transient error filtering, Npgsql/PostgreSQL examples, and PollyMediatR+PollyEFCore full-stack CQRS example.
+    <PackageReleaseNotes>1.0.2: Fix package icon (was showing an incorrect/placeholder image).
+1.0.1: Improved NuGet metadata and README with SQL Server transient error filtering, Npgsql/PostgreSQL examples, and PollyMediatR+PollyEFCore full-stack CQRS example.
 1.0.0: Initial release. ResilienceDbCommandInterceptor wraps EF Core queries and SaveChanges with a Polly v8 ResiliencePipeline. AddPollyResilience() DI extension for DbContextOptionsBuilder. DatabaseFacade.ExecuteWithResilienceAsync() for explicit operation wrapping.</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
