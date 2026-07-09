@@ -3,6 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/PollyEFCore.svg)](https://www.nuget.org/packages/PollyEFCore)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/PollyEFCore.svg)](https://www.nuget.org/packages/PollyEFCore)
 [![CI](https://github.com/Swevo/PollyEFCore/actions/workflows/build.yml/badge.svg)](https://github.com/Swevo/PollyEFCore/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Polly v8 resilience pipelines for Entity Framework Core** — retry, timeout and circuit-breaker for every EF Core query and `SaveChanges`, for any database provider, with a single line of registration.
 
